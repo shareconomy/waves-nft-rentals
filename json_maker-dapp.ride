@@ -1,0 +1,398 @@
+#-----------------------NECESSARY CONFIGURATIONS (DIRECTIVES)-----------------------#
+# The latest standard library version
+{-# STDLIB_VERSION 6 #-}
+
+# Content type has to be dApp
+{-# CONTENT_TYPE DAPP #-}
+
+# Every dApp is an account, so the script has to be of the account type
+{-# SCRIPT_TYPE ACCOUNT #-}
+{-# IMPORT artifacts/testnet.ride #-}
+
+
+#--------------------------------AUXILIARY VARIABLES--------------------------------#
+# Key necessary for testing
+let kJsonRes = "jsonRes"
+
+# Brackets symbol
+let quote = toUtf8String(base64'Ig==')
+
+#-----------------AUXILIARY FUNCTIONS USED BY THE CALLABLE FUNCTIONS----------------#
+# Create a function that forms a JSON-entry 
+func makeField(nextValue: (String,String)) = 
+    # if false then 
+    # # todo
+    # # if nextValue._2.take(1) == "{" then 
+    #     quote + nextValue._1 + quote + ":" + nextValue._2 + ","
+    # else 
+        quote + nextValue._1 + quote + ":" + quote + nextValue._2 + quote + ","
+
+
+# Create a function that returns a JSON object
+func reducerMakeJSON(accum: String, nextValue: (String,String)) = accum + makeField(nextValue)
+
+# Create a function that forms JSON body from initial data (between 1 and 10 parameters)
+func iterateMakeJSON(params: List[(String,String)], res: String, length: Int) = {
+    if (length == 0) then throw("Empty  params")
+    else if (length == 1) then FOLD<1>(params, res, reducerMakeJSON)
+    else if (length == 2) then FOLD<2>(params, res, reducerMakeJSON)
+    else if (length == 3) then FOLD<3>(params, res, reducerMakeJSON)
+    else if (length == 4) then FOLD<4>(params, res, reducerMakeJSON)
+    else if (length == 5) then FOLD<5>(params, res, reducerMakeJSON)
+    else if (length == 6) then FOLD<6>(params, res, reducerMakeJSON)
+    else if (length == 7) then FOLD<7>(params, res, reducerMakeJSON)
+    else if (length == 8) then FOLD<8>(params, res, reducerMakeJSON)
+    else if (length == 9) then FOLD<9>(params, res, reducerMakeJSON)
+    else if (length == 10) then FOLD<10>(params, res, reducerMakeJSON)
+    else throw("The max number of parameters exceeded")
+}
+
+# Create a function that gets the first ten array elements
+func getPartAndTail(arr: List[String]) = {
+    let el0 = arr[0]
+    let el1 = arr[1]
+    let el2 = arr[2]
+    let el3 = arr[3]
+    let el4 = arr[4]
+    let el5 = arr[5]
+    let el6 = arr[6]
+    let el7 = arr[7]
+    let el8 = arr[8]
+    let el9 = arr[9]
+    let arr0 = removeByIndex(arr, 0)
+    let arr1 = removeByIndex(arr0, 0)
+    let arr2 = removeByIndex(arr1, 0)
+    let arr3 = removeByIndex(arr2, 0)
+    let arr4 = removeByIndex(arr3, 0)
+    let arr5 = removeByIndex(arr4, 0)
+    let arr6 = removeByIndex(arr5, 0)
+    let arr7 = removeByIndex(arr6, 0)
+    let arr8 = removeByIndex(arr7, 0)
+    let arr9 = removeByIndex(arr8, 0)
+    ([el0, el1, el2, el3, el4, el5, el6, el7, el8, el9], arr9)
+}
+
+# Create a function ensuring only the dApp owner can call its own methods, else throw an error
+func onlyInternal(caller: Address) = if caller == this then unit else throw("Only internal call")
+
+# Create a set of functions forming an array, depending on the initial data maximum length (from 1 to 10)
+func prepare_1(arr: List[String], arr2: List[String]) = [(arr[0],arr2[0])]
+func prepare_2(arr: List[String], arr2: List[String]) = [(arr[0],arr2[0]),(arr[1],arr2[1])]
+func prepare_3(arr: List[String], arr2: List[String]) = [(arr[0],arr2[0]),(arr[1],arr2[1]),(arr[2],arr2[2])]
+func prepare_4(arr: List[String], arr2: List[String]) = [(arr[0],arr2[0]),(arr[1],arr2[1]),(arr[2],arr2[2]),(arr[3],arr2[3])]
+func prepare_5(arr: List[String], arr2: List[String]) = [(arr[0],arr2[0]),(arr[1],arr2[1]),(arr[2],arr2[2]),(arr[3],arr2[3]),(arr[4],arr2[4])]
+func prepare_6(arr: List[String], arr2: List[String]) = [(arr[0],arr2[0]),(arr[1],arr2[1]),(arr[2],arr2[2]),(arr[3],arr2[3]),(arr[4],arr2[4]),(arr[5],arr2[5])]
+func prepare_7(arr: List[String], arr2: List[String]) = [(arr[0],arr2[0]),(arr[1],arr2[1]),(arr[2],arr2[2]),(arr[3],arr2[3]),(arr[4],arr2[4]),(arr[5],arr2[5]),(arr[6],arr2[6])]
+func prepare_8(arr: List[String], arr2: List[String]) = [(arr[0],arr2[0]),(arr[1],arr2[1]),(arr[2],arr2[2]),(arr[3],arr2[3]),(arr[4],arr2[4]),(arr[5],arr2[5]),(arr[6],arr2[6]),(arr[7],arr2[7])]
+func prepare_9(arr: List[String], arr2: List[String]) = [(arr[0],arr2[0]),(arr[1],arr2[1]),(arr[2],arr2[2]),(arr[3],arr2[3]),(arr[4],arr2[4]),(arr[5],arr2[5]),(arr[6],arr2[6]),(arr[7],arr2[7]),(arr[8],arr2[8])]
+func prepare_10(arr: List[String], arr2: List[String]) = [(arr[0],arr2[0]),(arr[1],arr2[1]),(arr[2],arr2[2]),(arr[3],arr2[3]),(arr[4],arr2[4]),(arr[5],arr2[5]),(arr[6],arr2[6]),(arr[7],arr2[7]),(arr[8],arr2[8]),(arr[9],arr2[9])]
+
+# Create a function that chooses an array forming method, depending on the array length (from 1 to 10)
+func prepareParams(currentArrPartKeys: List[String], currentArrPartValues: List[String], length: Int) = {
+    if (length == 0) then throw("Empty  params")
+    else if (length == 1) then prepare_1(currentArrPartKeys, currentArrPartValues)
+    else if (length == 2) then prepare_2(currentArrPartKeys, currentArrPartValues)
+    else if (length == 3) then prepare_3(currentArrPartKeys, currentArrPartValues)
+    else if (length == 4) then prepare_4(currentArrPartKeys, currentArrPartValues)
+    else if (length == 5) then prepare_5(currentArrPartKeys, currentArrPartValues)
+    else if (length == 6) then prepare_6(currentArrPartKeys, currentArrPartValues)
+    else if (length == 7) then prepare_7(currentArrPartKeys, currentArrPartValues)
+    else if (length == 8) then prepare_8(currentArrPartKeys, currentArrPartValues)
+    else if (length == 9) then prepare_9(currentArrPartKeys, currentArrPartValues)
+    else if (length == 10) then prepare_10(currentArrPartKeys, currentArrPartValues)
+    else throw("Max number of parameters exceeded")
+}
+
+# Create a function that defines the start and the end key entry indices and its length
+func getStartAndEndIndexes(json: String, key: String) = {
+
+  # Calculate key symbols size 
+  let keyLen = key.size()
+
+  # Get the first symbol key index
+  let startIndex = indexOf(json, key).value()
+
+  # Get the separator (symbol after the key value) index
+  let endIndex = indexOf(json, ",", startIndex).valueOrElse({indexOf(json, "}", startIndex).value()})
+
+  (keyLen, startIndex, endIndex)
+}
+
+func reducerFindObjcetByKey(accum: (String, Int, Int, Int, Int, Int, Boolean), next: String) = {
+    let (
+        key, #static - what we find
+        levelOn, #static - which level of object-in-object we find in
+        currentLevelOn,
+        startIndex, #index of array then object start
+        endIndex, #index of array then object end
+        currentIndex, #counter - i
+        end) = accum #end - if we found
+    if !end then {
+        let keyValueList = next.split(":")
+        let leftBraceCount = next.split("{").size() - 1
+        let rightBraceCount = next.split("}").size() - 1
+        let nextCurrentCount = leftBraceCount - rightBraceCount
+        let (foundedStartIndex, foundedStart) =
+            if levelOn == currentLevelOn && keyValueList[0] == key then
+                    (currentIndex, true)
+            else
+                (0, false)
+        let (foundedEndIndex, foundedEnd) =
+            if levelOn == currentLevelOn && keyValueList[0] == key then
+                    (currentIndex, true)
+            else
+                (0, false)
+        (
+            key,
+            levelOn,
+            currentLevelOn + nextCurrentCount,
+            if foundedStart then foundedStartIndex else startIndex,
+            if foundedEnd then foundedEndIndex else endIndex,
+            currentIndex + 1,
+            if foundedEnd then foundedEnd else end
+        )
+    } else
+        accum
+}
+
+func reducerConcatList(accum: (String, Int, Int, Int, Boolean), next: String) = {
+    let (result, currentIndex, startIndex, endIndex, end) = accum
+    if !end then {
+        let newResult = 
+            if currentIndex >= startIndex && currentIndex <= endIndex then
+                result + "," + next
+            else
+                result
+        let newEnd = currentIndex > endIndex
+        (newResult, currentIndex+1, startIndex, endIndex, newEnd)
+    } else
+        accum
+}
+
+func reducerTakeObject(accum: (String, Int, Int, Int, Int, Boolean), next: String) = {
+  let (result, leftCount, rightCount, i, iCount, end) =  accum
+  if !end || i < iCount then {
+    let (nextLeftCount, nextRightCount) = if next.contains("{") then {
+        let _nextLeftCount = next.split("{").size() - 1
+        (_nextLeftCount, 0)
+    } else {
+        if next.contains("}") then {
+            let _nextRightCount = next.split("}").size() - 1
+            (0, _nextRightCount)
+        } else {
+            (0,0)
+        }
+        # if next.contains("{") {
+        #     (0,0)
+        # } else {
+        # }
+    }
+    # = if next.contains("{") {
+    #     # let _nextLeftCount = next.split("{").size() - 1
+    #     (0, 0)
+    # } else { 
+    # #     if next.contains("}") then {
+    # #     let _nextRightCount = next.split("}").size() - 1
+    # #     (0, _nextRightCount)
+    # # } else {
+    #     (0, 0)
+    # }
+    let curentLeftCount = leftCount + nextLeftCount
+    let currentRightCount = rightCount + nextRightCount
+    if curentLeftCount == currentRightCount then
+      (result, curentLeftCount, currentRightCount, i + 1, iCount, true)
+    else
+      (result + "," + next, curentLeftCount, currentRightCount, i + 1, iCount, false)
+  } else accum
+}
+
+# Create a function that reads a JSON's value by its key
+func readByKeyInternal(json: String, key: String) = {
+
+    # Get necessary parameters for reading a value by its key
+    let (keyLen, startIndex, endIndex) = getStartAndEndIndexes(json,key)
+
+    # Return the desired value by its index
+    drop(take(json, endIndex - 1), startIndex + keyLen + 3)
+}
+
+# Create a function that removes an element by its key and forms a new JSON object
+func deleteByKeyInternal(json: String, key: String) = {
+
+    # Get the necessary parameters for reading a value by its key
+    let (keyLen, startIndex, endIndex) = getStartAndEndIndexes(json,key)
+
+    let deletedValue = drop(take(json, endIndex - 1), startIndex + keyLen + 3)
+    # Get the value (that is to be removed) by its key
+
+    # let jsonBody = json.drop(2).dropRight(2)
+    # let jsonList = jsonBody.split(",")
+    # let jsonSize = jsonList.size()
+    # let deletedValue = if rowValue.contains("{") then {
+    #     let (_key, levelOn, currentLevelOn, _startIndex, _endIndex) = FOLD<100>(jsonList, (key, 0, 0, 0, 0, 0, false), reducerFindObjcetByKey)
+    #     (FOLD<100>(jsonList, ("", 0, _startIndex, _endIndex, false), reducerConcatList))._1
+    # } else rowValue
+    # Form a new JSON without the removed value
+    let newJson = if (json.size() - endIndex == 1)
+        then take(json, startIndex - 2) + drop(json, endIndex)
+        else take(json, startIndex - 1) + drop(json, endIndex + 1)
+
+    # Return the removed value by its key and a new JSON object
+    (deletedValue, newJson)
+}
+
+
+#------------------------------MAIN CALLABLE FUNCTIONS------------------------------#
+# Note that every callable function below is intended for string values
+# The key and value cannot contain "" and {} symbols
+
+# Create a function that forms a JSON string value from two initial data arrays
+@Callable(i)
+func makeJSONInternal(
+    arrKeys: List[String], 
+    arrValues: List[String], 
+    iterationsCount: Int, 
+    lastIterationLen: Int, 
+    res: String) = onlyInternal(i.caller).valueOrElse({
+
+    # Repeat the action until the last array element
+    if (iterationsCount > 0) then {
+
+        # Split the initial keys array in two: the first ten elements and the array's remainder
+        let (currentArrPartKeys, arrTailKeys) = getPartAndTail(arrKeys)
+
+        # Split the initial values array in two: the first ten elements and the array's remainder
+        let (currentArrPartValues, arrTailValues) = getPartAndTail(arrValues)
+
+        # Prepare data to form a JSON object
+        let params = prepareParams(currentArrPartKeys, currentArrPartValues, 10)
+
+        # Form a JSON string
+        let newString = iterateMakeJSON(params, res, 10)
+
+        # Pass the data remainder for the following data processing loop
+        strict result = invoke(this, "makeJSONInternal", [arrTailKeys, arrTailValues, iterationsCount - 1, lastIterationLen, newString], [])
+
+        # Return the JSON object
+        ([], result)
+    } else {
+
+        # Verify if there is any element for JSON formation left
+        if (lastIterationLen != 0) then {
+
+        # Prepare data to form the JSON object
+        let params = prepareParams(arrKeys, arrValues, lastIterationLen)
+
+        # Form a JSON string
+        let newString = iterateMakeJSON(params, res, lastIterationLen)
+
+        # Remove unnecessary symbols, complete JSON object formation, and return the final string
+        ([], "{" + dropRight(newString, 1) + "}")
+        } else {
+
+        # Remove unnecessary symbols, complete JSON object formation, and return the final string
+        ([], "{" + dropRight(res, 1) + "}")
+        }
+    }
+})
+
+# Create a function that forms a JSON string value from two data (keys and their value) arrays
+@Callable(i)
+func makeJSON(arrKeys: List[String], arrValues: List[String]) = {
+
+    # Verify that the number of keys equals the number of values
+    if (arrKeys.size() != arrValues.size()) then throw("ArrayKeys and ArrayValues length must be equal")
+    else {
+
+        # Get the initial array length
+        let len = arrKeys.size()
+
+        # Get the iteration number (to loop the dApp method for every array element; up to 10 times) 
+        let iterationsCount = fraction(1, len, 10)
+
+        # Get the last iteration number of elements 
+        let lastIterationLen = len % 10
+
+        # Start forming the JSON string
+        strict res = invoke(this, "makeJSONInternal", [arrKeys, arrValues, iterationsCount, lastIterationLen, ""], [])
+
+        # Return the JSON string
+        ([], res)
+
+        # If you wish to test how the code worked out:
+        # 1. Comment out the `([], res)` line above;
+        # 2. Uncomment the code in the comment below:
+        # ([StringEntry(kJsonRes, res.exactAs[String])], res)
+    }
+}
+
+# Create a function that adds new entries to the JSON object
+@Callable(i)
+func addToJSON(json: String, arrKeys: List[String], arrValues: List[String]) = {
+
+    # Verify that the number of keys equals the number of values
+    if (arrKeys.size() != arrValues.size()) then throw("ArrayKeys and ArrayValues length must be equal")
+    else {
+
+        # Get the initial JSON string
+        # let oldJson = this.getStringValue(kJsonRes)
+
+        # Get the initial array length
+        let len = arrKeys.size()
+
+        # Get the iteration number (to loop the dApp method for every array element up; to 10 times) 
+        let iterationsCount = fraction(1, len, 10)
+
+        # Get the last iteration number of elements 
+        let lastIterationLen = len % 10
+
+        # Start forming the JSON string
+        strict res = invoke(this, "makeJSONInternal", [arrKeys, arrValues, iterationsCount, lastIterationLen, drop(dropRight(json, 1), 1) + ","], [])
+
+        # Return the JSON string line
+        ([], res)
+
+        # If you wish to test how the code worked out:
+        # 1. Comment out the `([], res)` line above;
+        # 2. Uncomment the code in the comment below:
+        # ([StringEntry(kJsonRes, res.exactAs[String])], res)
+    }
+}
+
+# Create a function that gets a value from the JSON object by its key
+@Callable(i)
+func readByJSONKey(json: String, key: String) = {
+
+    # Get the initial JSON string
+    # let json = this.getStringValue(kJsonRes)
+
+    # Read the value by its key
+    let valueByKey = readByKeyInternal(json, key)
+
+    # Return the JSON string line
+    # ([], valueByKey)
+
+    # If you wish to test how the code worked out:
+    # 1. Comment out the `([], valueByKey)` line above;
+    # 2. Uncomment the code in the comment below:
+    ([StringEntry("valueByKey", valueByKey)], valueByKey)
+}
+
+# Create a function that removes an entry from the JSON by its key
+@Callable(i)
+func deleteByJSONKey(json: String, key: String) = {
+
+    # Get the initial JSON string
+    # let json = this.getStringValue(kJsonRes)
+
+    # Remove the value by its key
+    let (deletedValueByKey, newJson) = deleteByKeyInternal(json, key)
+
+    # Return the deleted value by its key and a new JSON object
+    # ([], (deletedValueByKey, newJson))
+    
+    # If you wish to test how the code worked out:
+    # 1. Comment out the `([], (deletedValueByKey, newJson))` line above;
+    # 2. Uncomment the code in the comment below:
+    ([StringEntry("deletedValue", deletedValueByKey),StringEntry(kJsonRes, newJson)], (deletedValueByKey, newJson))
+}

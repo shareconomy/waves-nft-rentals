@@ -1,0 +1,320 @@
+{-# STDLIB_VERSION 6 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+{-# IMPORT artifacts/testnet.ride #-}
+
+#--------------------------------AUXILIARY VARIABLES--------------------------------#
+
+let collectionName = getStringValue("collectionName")
+let symbol = getStringValue("symbol")
+let description = getStringValue("description")
+let totalAmount = getIntegerValue("totalAmount")
+let baseURI = getStringValue("baseURI")
+let dAppJson = Address(fromBase58String("3MrGaZVRhknEGfHJ19ttUPNnDRoFqcHhVN7"))
+let tokenPayment = getBinaryValue("tokenPayment")
+let tokenPaymentAsset = valueOrErrorMessage(assetInfo(getBinaryValue("tokenPayment")), "token payment asset doesn't connect")
+let lendCount = getIntegerValue("lendCount")
+let lendCurrentCount = getIntegerValue("lendCurrentCount")
+let hundredList = [
+    "","","","","","","","","","",
+    "","","","","","","","","","",
+    "","","","","","","","","","",
+    "","","","","","","","","","",
+    "","","","","","","","","","",
+    "","","","","","","","","","",
+    "","","","","","","","","","",
+    "","","","","","","","","","",
+    "","","","","","","","","","",
+    "","","","","","","","","",""
+]
+
+#-----------------AUXILIARY FUNCTIONS USED BY THE CALLABLE FUNCTIONS----------------#
+func parseIdtoAsset(assetId: String) = valueOrErrorMessage(assetInfo(fromBase58String(assetId)), "Can't find asset by asset id")
+
+func transferOrNot(to: Address, amount: Int, assetId: ByteVector) = {
+  if (to == this) then StringEntry("smth", "smth")
+  else ScriptTransfer(to, amount, assetId)
+}
+
+func getLendJson(lendId: Int) = {
+  let lendIdString = toString(lendId)
+  getStringValue("lend-" + lendIdString)
+}
+
+func getKey(lendJson: String, key: String) = {
+  strict timeUnitSeconds = invoke(dAppJson, "readByJSONKey", [lendJson, key], []).exactAs[String]
+  timeUnitSeconds
+}
+
+func getRentCount(lendId: Int) = {
+  let lendIdString = toString(lendId)
+  getIntegerValue("lend-rentCount-" + lendIdString)
+}
+
+func calcLendCost(lendId: Int, timeUnitSeconds: Int) = {
+  let lendJson = getLendJson(lendId)
+  strict timeUnitPriceString = lendJson.getKey("timeUnitPrice")
+  let timeUnitPrice = parseIntValue(timeUnitPriceString)
+  timeUnitSeconds * timeUnitPrice
+}
+
+func getLendCost(lendId: Int) = {
+  getInteger("lend-cost-" + toString(lendId)).valueOrElse(0)
+}
+
+func onlyInternal(caller: Address) =
+  if caller == this 
+  then unit
+  else throw("Only internal call")
+
+func reducerGetDeleteEntry(accum: (List[DeleteEntry], Int, Int, String), next: String) = {
+  let (deletions, current, maxCount, lendId) = accum
+  if current < maxCount
+  then (deletions :+ DeleteEntry("lend-rent-" + lendId + "-" + toString(current)), current + 1, maxCount, lendId)
+  else accum
+}
+
+func reducerConcatLists(
+    accum: List[BooleanEntry|DeleteEntry|IntegerEntry|ScriptTransfer], 
+    next: BooleanEntry|DeleteEntry|IntegerEntry|ScriptTransfer
+  ) = {
+  accum :+ next
+}
+
+func reducerConcatListsString(
+    accum: List[String], 
+    next: String
+  ) = {
+  accum :+ next
+}
+
+func reducerListToString(accum: String, next: String) = {
+  accum + "-" + next
+}
+
+func reducerTest(accum: (List[String], Int, Int, String), next: String) = {
+  let (deletions, current, maxCount, lendId) = accum
+  if current < maxCount
+  then (deletions :+ ("lend-rent-" + lendId + "-" + toString(current)), current + 1, maxCount, lendId)
+  else (deletions, current, maxCount, lendId)
+}
+
+func checkAssetOwner(caller: Address, assetId: String) = 
+  if caller.assetBalance(fromBase58String(assetId)) == 1 
+  then unit 
+  else throw("Only asset owner")
+
+func checkPayment(payments: List[AttachedPayment], amount: Int) =
+  if payments[0].amount >= amount
+  then unit
+  else throw("amount less then need")
+
+func checkAssetExists(assetId: String) =
+  if valueOrElse(getBoolean(assetId), false)
+  then throw("this token already use")
+  else unit
+
+func checkLendOwner(caller: Address, lendId: Int) = 
+  if lendId.getLendJson().getKey("owner") != toString(caller)
+  then throw("you haven't perms")
+  else unit
+
+
+
+#------------------------------INTERNAL CALLABLE FUNCTIONS------------------------------#
+
+@Callable(i)
+func setString(_key: String, _value: String) = onlyInternal(i.caller).valueOrElse({
+  [
+    StringEntry(_key, _value)
+  ]
+}) 
+
+@Callable(i)
+func setInt(_key: String, _value: Int) = onlyInternal(i.caller).valueOrElse({
+  [
+    IntegerEntry(_key, _value)
+  ]
+})
+
+@Callable(i)
+func deleteEntry(_key: String) = onlyInternal(i.caller).valueOrElse({
+  [
+    DeleteEntry(_key)
+  ]
+})
+
+@Callable(i)
+func init(_collectionName: String, _symbol: String, _description: String, _baseURI: String) = onlyInternal(i.caller).valueOrElse({
+  [
+    StringEntry("collectionName", _collectionName),
+    StringEntry("symbol", _symbol),
+    StringEntry("description", _description),
+    IntegerEntry("totalAmount", 0),
+    StringEntry("baseURI", _baseURI)
+  ]
+})
+
+@Callable(i) 
+func setUser(assetId: String, user: String, expires: String) = {
+  strict res = invoke(dAppJson, "makeJSON", [["user", "expires"], [user, expires]], [])
+  ([StringEntry("userOf-"+assetId, res.exactAs[String])], res)
+}
+
+
+@Callable(i)
+func setTokenPayment(assetBinary: ByteVector) = onlyInternal(i.caller).valueOrElse({
+  [
+    BinaryEntry("tokenPayment", assetBinary)
+  ]
+})
+
+#------------------------------MAIN CALLABLE FUNCTIONS------------------------------#
+
+@Callable(i)
+func mintTokens(to: String, amount: Int) = {
+  let reisue = Reissue(tokenPayment, amount, true)
+  let toAddress = Address(fromBase58String(to))
+  strict transfer = transferOrNot(toAddress, amount, tokenPayment)
+  [
+    transfer,
+    reisue
+  ]
+}
+
+@Callable(i)
+func mintNFT(to: String) = {
+  let tokenId = totalAmount + 1
+  let tokenIdString = toString(tokenId)
+  let preName = symbol+"#"+tokenIdString
+  let name = if (preName.size() <= 16)
+    then preName
+    else tokenIdString
+  let tokenURI = baseURI + tokenIdString
+  let json = invoke(dAppJson, "makeJSON", [["tokenURI"], [tokenURI]], []).exactAs[String]
+  let asset = Issue(name, json, 1, 0, false, unit, height)
+  let assetId = calculateAssetId(asset)
+  let toAddress = Address(fromBase58String(to))
+  strict transfer = transferOrNot(toAddress, 1, assetId)
+  [
+    asset,
+    transfer,
+    IntegerEntry("totalAmount", tokenId),
+    StringEntry(name, tokenURI)
+  ] 
+}
+
+@Callable(i)
+func initLend(
+    assetId: String,
+    timeUnitSeconds: Int,
+    timeUnitPrice: Int,
+    timeUnitCount: Int
+  ) = i.caller.checkAssetOwner(assetId).valueOrElse({
+  checkAssetExists(assetId).valueOrElse({
+  let asset = parseIdtoAsset(assetId)
+  strict tokenURI = invoke(dAppJson, "readByJSONKey", [asset.description, "tokenURI"], []).exactAs[String]
+  strict lendJson = invoke(dAppJson, "makeJSON", 
+    [
+        [
+            "supportedInterface",
+            "assetdId",
+            "tokenURI",
+            "owner",
+            "timeUnitSeconds",
+            "timeUnitPrice",
+            "timeUnitCount",
+            "startTimestamp",
+            "endTimestamp",
+            "deposit",
+            "claimed"
+        ], 
+        [
+            "0",
+            assetId,
+            tokenURI,
+            toString(i.caller),
+            toString(timeUnitSeconds),
+            toString(timeUnitPrice),
+            toString(timeUnitCount),
+            toString(lastBlock.timestamp),
+            toString(lastBlock.timestamp + timeUnitSeconds * timeUnitCount),
+            "0",
+            "0"
+        ]
+    ], []).exactAs[String]
+    
+    let lendIdString = toString(lendCount)
+    # strict insert = invoke(dAppJson, "addToJSON", [delete._2, [lendId, "lendCount"], [make, newCount]], []).exactAs[String]
+    [
+      IntegerEntry("lendCount", lendCount + 1),
+      IntegerEntry("lendCurrentCount", lendCurrentCount + 1),
+      IntegerEntry("lend-rentCount-" + lendIdString, 0),
+      StringEntry("lend-" + lendIdString, lendJson),
+      BooleanEntry(assetId, true)
+      # StringEntry("lend-" + lendId, lendJson)
+    ]
+  })
+})
+
+
+@Callable(i)
+func initRent(
+    lendId: Int,
+    timeUnitCount: Int
+  ) = i.payments.checkPayment(calcLendCost(lendId, timeUnitCount)).valueOrElse({
+  let lendIdString = toString(lendId)
+  let lendJson = getStringValue("lend-" + lendIdString)
+  let rentId = getRentCount(lendId)
+  let rentIdString = toString(rentId)
+  strict timeUnitSeconds = invoke(dAppJson, "readByJSONKey", [lendJson, "timeUnitSeconds"], []).exactAs[String]
+  strict timeUnitSecondsInt = parseIntValue(timeUnitSeconds)
+  strict rentJson = invoke(dAppJson, "makeJSON", 
+    [
+        [
+          "customer",
+          "timeUnitCount",
+          "startTimestamp",
+          "endTimestamp",
+          "closed"
+        ], 
+        [
+          toString(i.caller),
+          toString(timeUnitCount),
+          toString(lastBlock.timestamp),
+          toString(lastBlock.timestamp + timeUnitSecondsInt * timeUnitCount),
+          "0"
+        ]
+    ], []).exactAs[String]
+  [
+    IntegerEntry("lend-rentCount-" + lendIdString, rentId + 1),
+    StringEntry("lend-rent-" + lendIdString + "-" + rentIdString, rentJson),
+    IntegerEntry("lend-cost-" + lendIdString, calcLendCost(lendId, timeUnitCount) + getLendCost(lendId))
+  ]
+})
+
+@Callable(i)
+func closeLend(lendId: Int) = 
+  i.caller.checkLendOwner(lendId).valueOrElse({
+  let lendIdString = toString(lendId)
+  let rentCount = getIntegerValue("lend-rentCount-" + lendIdString)
+  let deleteEntryList = (FOLD<100>(hundredList, ([], 0, rentCount, lendIdString), reducerGetDeleteEntry))._1
+  let assetId = lendId.getLendJson().getKey("assetdId").valueOrElse("")
+  let txListRaw = [
+    BooleanEntry(assetId, false),
+    DeleteEntry("lend-" + lendIdString),
+    DeleteEntry("lend-rentCount-" + lendIdString),
+    DeleteEntry("lend-cost-" + lendIdString),
+    IntegerEntry("lendCurrentCount", lendCurrentCount - 1),
+    ScriptTransfer(i.caller, getLendCost(lendId), tokenPayment)
+  ]
+  let txList = FOLD<100>(txListRaw, deleteEntryList, reducerConcatLists)
+  txList
+})
+
+@Callable(i)
+func test() = {
+  let data = ["1", "2", "3"]
+  let list = (FOLD<100>(hundredList, (data, 0, 5, "5"), reducerTest))._1
+  [StringEntry("Debug", FOLD<100>(list, "", reducerListToString))]
+}
