@@ -1,0 +1,159 @@
+// This is an example of a test you can implement
+const WAVES = 10 ** 8;
+const FEE = 0.001 * WAVES;
+const ADD_FEE = 0.004 * WAVES;
+
+describe('Array utils. json-maker', async function () {
+    const arrKeys = generateKey(19, "");
+    const arrValues = generateValue(19);
+
+    this.timeout(100000);
+
+    before(async function () {
+        await setupAccounts({
+            dApp: 2 * WAVES
+        });
+        
+        const dAppScript = compile(
+            file('json_maker.ride'),
+            3,
+            false, // Compaction
+            false, // Remove unused code
+            {
+            }
+        );
+        const ssDAppTx = setScript({ script: dAppScript }, accounts.dApp);
+        await broadcast(ssDAppTx);
+        await waitForTx(ssDAppTx.id);
+    });
+
+    it('Should call makeJSON', async function () {
+        const iCallFuncTx = invokeScript({
+            fee: FEE + ADD_FEE,
+            dApp: address(accounts.dApp),
+            call: {
+                function: "makeJSON",
+                args: [
+                    { type: 'list', value: toListT("string", arrKeys) },
+                    { type: 'list', value: toListT("string", arrValues) }
+                ]
+            },
+        }, accounts.dApp);
+        await broadcast(iCallFuncTx);
+        await waitForTx(iCallFuncTx.id);
+
+        const res = await getDetails();
+        const parsed = JSON.parse(res.jsonRes);
+        
+        expect(parsed.a0).to.be.equal(arrValues[0]);
+        expect(parsed.a18).to.be.equal(arrValues[18]);
+        expect(parsed.added_a0).to.be.equal(undefined);
+    });
+    
+    it('Should call addToJSON', async function () {
+        const arrAddKeys = generateKey(19, "added_");
+        const arrAddValues = generateValue(19);
+
+        const iCallFuncTx = invokeScript({
+            fee: FEE + ADD_FEE,
+            dApp: address(accounts.dApp),
+            call: {
+                function: "addToJSON",
+                args: [
+                    { type: 'list', value: toListT("string", arrAddKeys) },
+                    { type: 'list', value: toListT("string", arrAddValues) }
+                ]
+            },
+        }, accounts.dApp);
+        await broadcast(iCallFuncTx);
+        await waitForTx(iCallFuncTx.id);
+
+        const res = await getDetails();
+        const parsed = JSON.parse(res.jsonRes);
+        
+        expect(parsed.a0).to.be.equal(arrAddValues[0]);
+        expect(parsed.a18).to.be.equal(arrAddValues[18]);
+        expect(parsed.added_a0).to.be.equal(arrAddValues[0]);
+        expect(parsed.added_a18).to.be.equal(arrAddValues[18]);
+    });
+
+    it('Should call readByJSONKey', async function () {
+        let key = arrKeys[18];
+
+        const iCallFuncTx = invokeScript({
+            fee: FEE + ADD_FEE,
+            dApp: address(accounts.dApp),
+            call: {
+                function: "readByJSONKey",
+                args: [
+                    { type: 'string', value: key }
+                ]
+            },
+        }, accounts.dApp);
+        await broadcast(iCallFuncTx);
+        await waitForTx(iCallFuncTx.id);
+
+        const res = await getDetails();
+        expect(res.valueByKey).to.be.equal(arrValues[18]);
+    });
+
+    it('Should call deleteByJSONKey', async function () {
+        let key = arrKeys[0];
+        
+        const iCallFuncTx = invokeScript({
+            fee: FEE + ADD_FEE,
+            dApp: address(accounts.dApp),
+            call: {
+                function: "deleteByJSONKey",
+                args: [
+                    { type: 'string', value: key }
+                ]
+            },
+        }, accounts.dApp);
+        await broadcast(iCallFuncTx);
+        await waitForTx(iCallFuncTx.id);
+
+        const res = await getDetails();
+        const parsed = JSON.parse(res.jsonRes);
+
+        expect(res.deletedValue).to.be.equal(arrValues[0]);
+        expect(parsed.a0).to.be.equal(undefined);
+    });
+})
+
+function safeValue(res) {
+    return res == null ? "none" : res.value;
+}
+
+function toListT(arrType, arr) {
+    return arr.map(element => {
+        return { type: arrType, value: element }
+    });
+}
+
+function generateKey(arrSize, prefix) {
+    let res = [];
+    for (let i = 0; i < arrSize; i++) {
+        res.push(`${prefix}a${i}`)
+    }
+    return res;
+}
+
+function generateValue(arrSize) {
+    let res = [];
+    for (let i = 0; i < arrSize; i++) {
+        res.push(`${i}`)
+    }
+    return res;
+}
+
+async function getDetails() {
+    const jsonRes = await accountDataByKey("jsonRes", address(accounts.dApp));
+    const valueByKey = await accountDataByKey("valueByKey", address(accounts.dApp));
+    const deletedValue = await accountDataByKey("deletedValue", address(accounts.dApp));
+    return {
+        jsonRes: safeValue(jsonRes),
+        valueByKey: safeValue(valueByKey),
+        deletedValue: safeValue(deletedValue),
+    }
+}
